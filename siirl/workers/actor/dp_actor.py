@@ -324,6 +324,7 @@ class DataParallelPPOActor(BasePPOActor):
             "position_ids",
             "old_log_probs",
             "advantages",
+            "token_level_rewards",
         ]
         if self.config.use_kl_loss:
             select_keys.append("ref_log_prob")
@@ -396,6 +397,7 @@ class DataParallelPPOActor(BasePPOActor):
                         clip_ratio_c=clip_ratio_c,
                         loss_agg_mode=loss_agg_mode,
                         use_cpgd_loss=use_cpgd_loss,
+                        policy_drift_coeff=policy_drift_coeff,
                     )
 
                     if entropy_coeff != 0:
@@ -418,11 +420,25 @@ class DataParallelPPOActor(BasePPOActor):
                         micro_batch_metrics["actor/kl_loss"] = kl_loss.detach().item()
                         micro_batch_metrics["actor/kl_coef"] = self.config.kl_loss_coef
 
-                    if use_cpgd_loss and policy_drift_coeff != 0:
-                        # compute policy drift loss from CPGD
-                        policy_drift = ((log_prob.detach() - old_log_prob).exp() - 1.0).clamp(max=2.0) * log_prob
-                        policy_drift_loss = agg_loss(loss_mat=policy_drift, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
-                        policy_loss = policy_loss + policy_drift_loss * policy_drift_coeff
+                    # if use_cpgd_loss and policy_drift_coeff != 0:
+                    #     # compute policy drift loss from CPGD
+                    #     policy_drift = ((log_prob.detach() - old_log_prob).exp() - 1.0).clamp(max=2.0) * log_prob
+                    #     policy_drift_loss = agg_loss(loss_mat=policy_drift, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
+                    #     policy_loss = policy_loss + policy_drift_loss * policy_drift_coeff
+                    
+                    if self.config.positive_sft_coeff > 0:
+                        token_level_rewards = data["token_level_rewards"]
+                        # Determine correct responses based on token level rewards sum
+                        correct_threshold = 0.5
+                        correct_mask = token_level_rewards.sum(dim=-1) > correct_threshold
+                        # Calculate SFT loss only for correct responses
+                        sft_loss = -log_prob
+                        masked_sft_loss = sft_loss * correct_mask.unsqueeze(1)
+                        positive_sft_loss = agg_loss(loss_mat=masked_sft_loss, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
+                        policy_loss = policy_loss + positive_sft_loss * self.config.positive_sft_coeff
+                        micro_batch_metrics["actor/positive_sft_loss"] = positive_sft_loss.detach().item()
+                        micro_batch_metrics["actor/positive_sft_coeff"] = self.config.positive_sft_coeff
+
 
                     if self.config.use_dynamic_bsz:
                         # relative to the dynamic bsz

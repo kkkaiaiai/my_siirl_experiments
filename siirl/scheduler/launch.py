@@ -73,6 +73,7 @@ class RayTrainer:
             AdvantageEstimator.RLOO,
             AdvantageEstimator.REINFORCE_PLUS_PLUS_BASELINE,
             AdvantageEstimator.CPGD,
+            AdvantageEstimator.CPGD_PASSK,
         ]:
             self.use_critic = False
         else:
@@ -192,7 +193,7 @@ class RayTrainer:
         if multi_turn_enable:
             assert tool_config_path is not None, f"Node {node.node_id} (Rollout): tool_config_path required for multi_turn."
             # Check if the algorithm is compatible with multi-turn rollouts.
-            assert self.base_config.algorithm.adv_estimator in [AdvantageEstimator.GRPO], f"only GRPO is tested for multi-turn with tool"
+            assert self.base_config.algorithm.adv_estimator in [AdvantageEstimator.GRPO, AdvantageEstimator.CPGD], f"only GRPO and CPGD is tested for multi-turn with tool"
 
     def validate_critic_config(self, node: Node, critic_conf: CriticArguments, use_remove_padding: bool = False):
         """Validates configuration parameters specific to a Critic training node."""

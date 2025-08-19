@@ -63,6 +63,9 @@ METRIC_CONFIG_FULL = {
 METRIC_CONFIG_MEAN_ONLY = {
     "response_clip_ratio": "response/clip_ratio",
     "prompt_clip_ratio": "prompt/clip_ratio",
+    "repetition_1gram": "critic/repetition_1gram",
+    "repetition_3gram": "critic/repetition_3gram",
+    "repetition_5gram": "critic/repetition_5gram",
 }
 
 
@@ -480,6 +483,9 @@ class UtilitiesMixin:
             "wrong_response_length": response_lengths[~correct_mask],
             "response_clip_ratio": torch.eq(response_info["response_length"], max_response_length).float(),
             "prompt_clip_ratio": torch.eq(prompt_lengths, max_prompt_length).float(),
+            "repetition_1gram": torch.tensor(batch.non_tensor_batch.get("repetition_1gram", [-1.0])),
+            "repetition_3gram": torch.tensor(batch.non_tensor_batch.get("repetition_3gram", [-1.0])),
+            "repetition_5gram": torch.tensor(batch.non_tensor_batch.get("repetition_5gram", [-1.0])),
         }
 
         if use_critic:

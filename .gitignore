@@ -123,6 +123,8 @@ logs
 log
 outputs
 .history
+siirl_logs/
+siirl_rollout_log/
 
 *tensorboard
 tensorboard/

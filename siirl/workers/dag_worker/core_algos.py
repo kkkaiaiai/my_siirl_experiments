@@ -471,6 +471,49 @@ def compute_cpgd_outcome_advantage(
 
     return scores, scores
 
+def compute_cpgd_passk_outcome_advantage(
+    token_level_rewards: torch.Tensor,
+    response_mask: torch.Tensor,
+    index: np.ndarray,
+    epsilon: float = 1e-6,
+    k: int = 4,
+):
+    scores = token_level_rewards.sum(dim=-1)
+
+    id2score = defaultdict(list)
+    id2mean = {}
+    id2std = {}
+    id2neg_term = {}
+
+    with torch.no_grad():
+        bsz = scores.shape[0]
+        for i in range(bsz):
+            id2score[index[i]].append(scores[i])
+        for idx in id2score:
+            scores_list = id2score[idx]
+            N_rollout = len(scores_list)
+            N_neg = sum(1 for score in scores_list if torch.isclose(score, torch.tensor(0.0)))
+            if N_rollout >= k and k > 1:
+                comb_N_neg_k = math.comb(N_neg, k)
+                comb_N_rollout_k = math.comb(N_rollout, k)
+                id2mean[idx] = torch.tensor(1 - (comb_N_neg_k / comb_N_rollout_k))
+                id2std[idx] = torch.sqrt(id2mean[idx] * (1 - id2mean[idx]))
+                id2neg_term[idx] = torch.tensor((math.comb(N_neg-1, k-1) / math.comb(N_rollout-1, k-1))) if N_neg > 1 else torch.tensor(0.0)
+            elif N_rollout >= 1:
+                id2mean[idx] = torch.tensor(0.0)
+                id2std[idx] = torch.tensor(1.0)
+                id2neg_term[idx] = torch.tensor(0.0)
+            else:
+                raise ValueError(f"no score in prompt index: {idx}")
+        for i in range(bsz):
+            if scores[i] > 0.0:
+                scores[i] = (1.0 - id2mean[index[i]]) / (id2std[index[i]] + epsilon)
+            else:
+                scores[i] = (1.0 - id2mean[index[i]] - id2neg_term[index[i]]) / (id2std[index[i]] + epsilon)
+        scores = scores.unsqueeze(-1) * response_mask
+
+    return scores, scores
+
 
 def compute_rewards(token_level_scores, old_log_prob, ref_log_prob, kl_ratio):
     kl = old_log_prob - ref_log_prob
@@ -524,6 +567,9 @@ def compute_policy_loss(
     clip_ratio_c=3.0,
     loss_agg_mode: str = "token-mean",
     use_cpgd_loss=False,
+    use_IS_ratio=False,
+    policy_drift_coeff=0.0,
+    k_percent=0.2,
 ):
     """
     Compute the clipped policy objective and related metrics for PPO.
@@ -569,7 +615,31 @@ def compute_policy_loss(
     if use_cpgd_loss:
         clipped_log_prob = torch.where(advantages > 0, torch.clamp(log_prob, max=math.log(1 + cliprange_high) + old_log_prob), torch.clamp(log_prob, min=math.log(1 - cliprange_low) + old_log_prob))
         pg_losses = -clipped_log_prob * advantages
-        pg_loss = agg_loss(loss_mat=pg_losses, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)  # use token-mean
+        if use_IS_ratio:
+            pg_losses = pg_losses * torch.clamp(ratio.detach(), 1 - cliprange_low, 1)
+        policy_drift_losses = ((log_prob.detach() - old_log_prob).exp() - 1.0).clamp(max=2.0) * log_prob
+        pg_losses_drift = pg_losses + policy_drift_losses * policy_drift_coeff
+        # pg_loss = agg_loss(loss_mat=pg_losses, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)  # use token-mean
+        # policy_drift_loss = agg_loss(loss_mat=policy_drift_losses, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
+        
+        ## entropy mechanism
+        all_valid = (response_mask > 0)
+        all_valid_idx = torch.nonzero(all_valid.reshape(-1), as_tuple=True)[0]
+        all_valid_adv = advantages[all_valid].detach().reshape(-1).cpu()
+        all_valid_logp = log_prob[all_valid].detach().reshape(-1).cpu()
+        k = min(k_percent, len(all_valid_adv))
+        if k != 0:
+            cov_lst_all = (all_valid_adv - all_valid_adv.mean()) * (all_valid_logp - all_valid_logp.mean())
+            k_percent_nums = max(1, int(len(cov_lst_all) * k / 100))
+            large_cov_idxs = torch.topk(cov_lst_all, k_percent_nums, largest=True).indices
+            
+            if len(large_cov_idxs) != 0:
+                large_cov_idxs = all_valid_idx[large_cov_idxs]
+                batch_idx = large_cov_idxs // advantages.shape[1]
+                seq_idx = large_cov_idxs % advantages.shape[1]
+                pg_losses[batch_idx, seq_idx] = pg_losses_drift[batch_idx, seq_idx]
+
+        pg_loss = agg_loss(loss_mat=pg_losses, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
 
         is_clipped = torch.where(advantages > 0, ratio > 1 + cliprange_high, ratio < 1 - cliprange_low)
         pg_clipfrac = F.masked_mean(is_clipped.float(), response_mask).detach()

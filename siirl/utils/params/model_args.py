@@ -241,6 +241,7 @@ class ActorArguments:
     recompute_old_log_prob: bool = field(default=True, metadata={"help": "recompute old log prob"})
     use_cpgd_loss: bool = field(default=False, metadata={"help": "use cpgd loss"})
     policy_drift_coeff: float = field(default=0.0, metadata={"help": "policy drift coeff for CPGD"})
+    positive_sft_coeff: float = field(default=0.0)
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

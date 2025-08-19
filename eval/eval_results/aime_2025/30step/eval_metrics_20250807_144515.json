@@ -1,0 +1,22 @@
+{
+  "total_samples": 30,
+  "accuracy_at_1": 0.0,
+  "accuracy_at_n": 0.0,
+  "average_best_score": 0.0,
+  "average_score_across_samples": 0.0,
+  "average_accuracy_across_samples": 0.0,
+  "token_statistics": {
+    "avg_tokens_per_generation": 1468.0822916666666,
+    "std_tokens_per_generation": 717.7952546534991,
+    "min_tokens_overall": 310,
+    "max_tokens_overall": 4096,
+    "avg_tokens_per_sample": 1468.0822916666666,
+    "total_generations": 960
+  },
+  "by_data_source": {
+    "yentinglin/aime_2025": 0.0
+  },
+  "by_ability": {
+    "math": 0.0
+  }
+}

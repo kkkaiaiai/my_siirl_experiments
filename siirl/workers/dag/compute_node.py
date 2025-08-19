@@ -152,6 +152,17 @@ class ComputeNode(Node):
             )
             data.batch["advantages"] = advantages
             data.batch["returns"] = returns
+        elif self.adv_estimator == AdvantageEstimator.CPGD_PASSK:
+            # TODO: test on more adv estimator type
+            cpgd_calculation_mask = data.batch["response_mask"]
+            # Call compute_cpgd_outcome_advantage with parameters matching its definition
+            advantages, returns = core_algos.compute_cpgd_passk_outcome_advantage(
+                token_level_rewards=data.batch["token_level_rewards"],
+                response_mask=cpgd_calculation_mask,
+                index=data.non_tensor_batch["uid"],
+            )
+            data.batch["advantages"] = advantages
+            data.batch["returns"] = returns
         else:
             raise NotImplementedError
         return data
