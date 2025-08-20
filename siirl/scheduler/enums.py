@@ -30,6 +30,7 @@ class AdvantageEstimator(str, Enum):
     GRPO_PASSK = "grpo_passk"
     CPGD = "cpgd"
     CPGD_PASSK = "cpgd_passk"
+    CPGD_PASSK_COMBINATION = "cpgd_passk_comb"
 
 
 class Role(Enum):

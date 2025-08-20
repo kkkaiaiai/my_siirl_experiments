@@ -514,6 +514,68 @@ def compute_cpgd_passk_outcome_advantage(
 
     return scores, scores
 
+def compute_cpgd_passk_combination_outcome_advantage(
+    token_level_rewards: torch.Tensor,
+    response_mask: torch.Tensor,
+    index: np.ndarray,
+    epsilon: float = 1e-6,
+    k: int = 4,
+):
+    scores = token_level_rewards.sum(dim=-1)
+    bsz = scores.shape[0]
+
+    id2score = defaultdict(list)
+    id2passkmean, id2passkstd, id2neg_term = {}, {}, {}
+    id2pass1mean, id2pass1std, id2pass_rate = {}, {}, {}
+
+    with torch.no_grad():
+        for i in range(bsz):
+            id2score[index[i]].append(scores[i])
+        for idx in id2score:
+            score_tensor = torch.tensor(id2score[idx])
+            N_rollout = len(id2score[idx])
+            N_neg = (score_tensor == 0).sum().item()
+
+            # pass rate
+            id2pass_rate[idx] = 1 - N_neg / N_rollout if N_rollout > 0 else 0.0
+
+            # pass@1 相关
+            if N_rollout > 1:
+                id2pass1mean[idx] = score_tensor.mean()
+                id2pass1std[idx] = score_tensor.std()
+            elif N_rollout == 1:
+                id2pass1mean[idx] = torch.tensor(0.0)
+                id2pass1std[idx] = torch.tensor(1.0)
+            else:
+                raise ValueError(f"no score in prompt index: {idx}")
+            # pass@k 相关
+            if N_rollout >= k and k > 1:
+                comb_N_neg_k = math.comb(N_neg, k)
+                comb_N_rollout_k = math.comb(N_rollout, k)
+                id2passkmean[idx] = torch.tensor(1 - (comb_N_neg_k / comb_N_rollout_k))
+                id2passkstd[idx] = torch.sqrt(id2passkmean[idx] * (1 - id2passkmean[idx]))
+                id2neg_term[idx] = torch.tensor(
+                    (math.comb(N_neg - 1, k - 1) / math.comb(N_rollout - 1, k - 1))
+                    if N_neg > 1 else 0.0
+                )
+            else:
+                id2passkmean[idx] = torch.tensor(0.0)
+                id2passkstd[idx] = torch.tensor(1.0)
+                id2neg_term[idx] = torch.tensor(0.0)
+
+        for i in range(bsz):
+            idx = index[i]
+            cur_score = scores[i]
+            if cur_score > 0.0:
+                scores[i] = ((1.0 - id2passkmean[idx]) / (id2passkstd[idx] + epsilon) * id2pass_rate[idx] +
+                       (cur_score - id2pass1mean[idx]) / (id2pass1std[idx] + epsilon) * (1 - id2pass_rate[idx]))
+            else:
+                scores[i] = ((1.0 - id2passkmean[idx] - id2neg_term[idx]) / (id2passkstd[idx] + epsilon) * id2pass_rate[idx] +
+                       (cur_score - id2pass1mean[idx]) / (id2pass1std[idx] + epsilon) * (1 - id2pass_rate[idx]))
+        scores = scores.unsqueeze(-1) * response_mask
+
+    return scores, scores
+
 
 def compute_rewards(token_level_scores, old_log_prob, ref_log_prob, kl_ratio):
     kl = old_log_prob - ref_log_prob
@@ -570,6 +632,8 @@ def compute_policy_loss(
     use_IS_ratio=False,
     policy_drift_coeff=0.0,
     k_percent=0.2,
+    entropy=None,
+    entropy_coeff=0.0,
 ):
     """
     Compute the clipped policy objective and related metrics for PPO.
@@ -618,7 +682,7 @@ def compute_policy_loss(
         if use_IS_ratio:
             pg_losses = pg_losses * torch.clamp(ratio.detach(), 1 - cliprange_low, 1)
         policy_drift_losses = ((log_prob.detach() - old_log_prob).exp() - 1.0).clamp(max=2.0) * log_prob
-        pg_losses_drift = pg_losses + policy_drift_losses * policy_drift_coeff
+        pg_losses_drift_entropy = pg_losses + policy_drift_losses * policy_drift_coeff - entropy * entropy_coeff
         # pg_loss = agg_loss(loss_mat=pg_losses, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)  # use token-mean
         # policy_drift_loss = agg_loss(loss_mat=policy_drift_losses, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
         
@@ -637,7 +701,7 @@ def compute_policy_loss(
                 large_cov_idxs = all_valid_idx[large_cov_idxs]
                 batch_idx = large_cov_idxs // advantages.shape[1]
                 seq_idx = large_cov_idxs % advantages.shape[1]
-                pg_losses[batch_idx, seq_idx] = pg_losses_drift[batch_idx, seq_idx]
+                pg_losses[batch_idx, seq_idx] = pg_losses_drift_entropy[batch_idx, seq_idx]
 
         pg_loss = agg_loss(loss_mat=pg_losses, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
 

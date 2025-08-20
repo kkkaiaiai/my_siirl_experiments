@@ -74,6 +74,7 @@ class RayTrainer:
             AdvantageEstimator.REINFORCE_PLUS_PLUS_BASELINE,
             AdvantageEstimator.CPGD,
             AdvantageEstimator.CPGD_PASSK,
+            AdvantageEstimator.CPGD_PASSK_COMBINATION,
         ]:
             self.use_critic = False
         else:

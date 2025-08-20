@@ -8,7 +8,7 @@ timestamp=$(date +"%Y%m%d_%H%M%S")
 # --- Experiment and Model Definition ---
 export DATASET=DAPO-Math-17k
 export TEST_DATASET=MATH-500
-export ALG=gae
+export ALG=cpgd_passk_comb
 export MODEL_NAME=Qwen3-8B-Base
 
 # --- Path Definitions ---

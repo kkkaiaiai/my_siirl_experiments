@@ -60,6 +60,7 @@ def determine_workflow_config(self, siirl_args: SiiRLArguments) -> str:
         AdvantageEstimator.REINFORCE_PLUS_PLUS_BASELINE,
         AdvantageEstimator.CPGD,
         AdvantageEstimator.CPGD_PASSK,
+        AdvantageEstimator.CPGD_PASSK_COMBINATION,
     ]:
         return os.path.join(current_dir, "config/workflow_grpo.yaml")
     else:
@@ -122,7 +123,7 @@ class MainRunner:
         else:
             workflow_path = siirl_args.dag.workflow_path
         logger.info(f"Loading workerflow from: {siirl_args.dag.workflow_path}")
-        if siirl_args.algorithm.adv_estimator == AdvantageEstimator.CPGD or siirl_args.algorithm.adv_estimator == AdvantageEstimator.CPGD_PASSK:
+        if siirl_args.algorithm.adv_estimator == AdvantageEstimator.CPGD or siirl_args.algorithm.adv_estimator == AdvantageEstimator.CPGD_PASSK or siirl_args.algorithm.adv_estimator == AdvantageEstimator.CPGD_PASSK_COMBINATION:
             siirl_args.actor_rollout_ref.actor.use_cpgd_loss = True
         workerflow_taskgraph = DAGConfigLoader.load_from_file(workflow_path)
         update_task_graph_node_configs(workerflow_taskgraph, siirl_args)

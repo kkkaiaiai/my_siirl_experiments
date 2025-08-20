@@ -7,6 +7,10 @@
 **/*.tar.gz
 **/playground
 **/wandb
+**/data/
+data/
+.ray
+.triton
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

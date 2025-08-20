@@ -398,13 +398,16 @@ class DataParallelPPOActor(BasePPOActor):
                         loss_agg_mode=loss_agg_mode,
                         use_cpgd_loss=use_cpgd_loss,
                         policy_drift_coeff=policy_drift_coeff,
+                        entropy=entropy,
+                        entropy_coeff=entropy_coeff,
                     )
 
                     if entropy_coeff != 0:
-                        entropy_loss = agg_loss(loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
+                        # entropy_loss = agg_loss(loss_mat=entropy, loss_mask=response_mask, loss_agg_mode=loss_agg_mode)
 
-                        # compute policy loss
-                        policy_loss = pg_loss - entropy_loss * entropy_coeff
+                        # # compute policy loss
+                        # policy_loss = pg_loss - entropy_loss * entropy_coeff
+                        policy_loss = pg_loss
                     else:
                         policy_loss = pg_loss
 

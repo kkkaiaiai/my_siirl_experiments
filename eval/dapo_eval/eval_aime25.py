@@ -229,11 +229,6 @@ def evaluate_chat_model(args):
         outputs = []
         for data_item, model_output in zip(data, model_outputs): 
             data_item, acc_list = verify_single_output(data_item, model_output.outputs)
-            
-            if single_pass:
-                passed += 1
-            total += 1
-
             outputs.append(data_item)
 
         accuracy = passed / total if total > 0 else 0.0
@@ -258,7 +253,7 @@ if __name__ == "__main__":
     parser.add_argument("--top_p", type=float, default=1)
     parser.add_argument("--top_k", type=float, default=-1)
     parser.add_argument("--temperature", type=float, default=1.0)
-    parser.add_argument("--max_token", type=int, default=4090)
+    parser.add_argument("--max_token", type=int, default=8192)
     parser.add_argument("--num_samples", type=int, default=1)
     parser.add_argument("--batch_size", type=int, default=256)
     parser.add_argument("--tensor_parallel_size", type=int, default=1)

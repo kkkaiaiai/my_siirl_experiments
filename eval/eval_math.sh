@@ -38,7 +38,12 @@ HOME=/inspire/hdd/project/qproject-multireasoning/shaowenqi-shaowenqi/liuzongkai
 # model_name=passk_klCov01coef_bsz512_mini_bsz128_rollout_n16_clip_eps_high0.2_30step
 # python dapo_eval/eval_aime25.py --checkpoint ${CHECKPOINT} --out-dir results/${RESULT_DIR} --temperature 0.6 --top_p 0.95 --num_samples 256 --batch_size 256 --model_name $model_name
 
+# CHECKPOINT=$HOME/Qwen3-8B-Base_cpgd_passk_DAPO-Math-17k_hybrid/nodes4_passk_klCov01coef_train_bsz512_mini_bsz128_rollout_n16_clip_eps_high0.2_lr_warmup_styleconstant_total_epoch10/global_step_160/actor_agent_0/huggingface
+# RESULT_DIR="dapo17k"
+# model_name=passk_klCov01coef_bsz512_mini_bsz128_rollout_n16_clip_eps_high0.2_160step
+# python dapo_eval/eval_aime25.py --checkpoint ${CHECKPOINT} --out-dir results/${RESULT_DIR} --temperature 0.6 --top_p 0.95 --num_samples 256 --batch_size 256 --model_name $model_name
+
 CHECKPOINT=$HOME/Qwen3-8B-Base_cpgd_passk_DAPO-Math-17k_hybrid/nodes4_passk_klCov01coef_train_bsz512_mini_bsz128_rollout_n16_clip_eps_high0.2_lr_warmup_styleconstant_total_epoch10/global_step_160/actor_agent_0/huggingface
 RESULT_DIR="dapo17k"
-model_name=passk_klCov01coef_bsz512_mini_bsz128_rollout_n16_clip_eps_high0.2_160step
+model_name=passk_klCov01coef_bsz512_mini_bsz128_rollout_n16_clip_eps_high0.2_160step_aime_2025_250819060526_256
 python dapo_eval/eval_aime25.py --checkpoint ${CHECKPOINT} --out-dir results/${RESULT_DIR} --temperature 0.6 --top_p 0.95 --num_samples 256 --batch_size 256 --model_name $model_name
